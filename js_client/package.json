@@ -1,0 +1,24 @@
+{
+  "name": "tb_client",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "devDependencies": {
+    "@cosmjs/amino": "^0.29.0",
+    "@cosmjs/cosmwasm-stargate": "^0.29.0",
+    "@cosmjs/crypto": "^0.29.0",
+    "@cosmjs/encoding": "^0.29.0",
+    "@cosmjs/proto-signing": "^0.29.0",
+    "@cosmjs/stargate": "^0.29.0",
+    "eslint": "^7.5",
+    "prettier": "^2.4.1",
+    "typescript": "~4.6"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC"
+}

@@ -1,0 +1,5 @@
+#!/bin/bash 
+
+#cargo clean
+cargo build
+mv ./target/debug/trustboost-client .

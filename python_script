@@ -1,0 +1,32 @@
+#!/usr/bin/python3
+
+import sys
+import json
+
+CHAINS_RAW="{\"type\":\"cosmos\",\"value\":{\"key\":\"testkey\",\"chain-id\":\"ibc-6\",\"rpc-addr\":\"http://localhost:26556\",\"grpc-addr\":\"\",\"account-prefix\":\"wasm\",\"keyring-backend\":\"test\",\"gas-adjustment\":1.5,\"gas-prices\":\"0.025stake\",\"debug\":true,\"timeout\":\"10s\",\"output-format\":\"json\",\"sign-mode\":\"direct\"}}\n"
+
+PATHS_RAW="{\"src\":{\"chain-id\":\"ibc-0\",\"order\":\"unordered\",\"version\":\"simplestoragev1\"},\"dst\":{\"chain-id\":\"ibc-1\",\"order\":\"unordered\",\"version\":\"simplestoragev1\"},\"src-channel-filter\":{\"rule\":null,\"channel-list\":[]}}\n"
+PATHS_FOLDER="./configs/wasmd/7chains/paths"
+PATHS_FOLDER="./temp"
+
+def create_paths(node):
+  for i in range(0,node):
+    for j in range(1+i,node):
+      paths_json=json.loads(PATHS_RAW)
+      paths_json['src']['chain-id'] = f"ibc-{i}"
+      paths_json['src']['rpc-addr'] = f"http://localhost:2655{i}"
+      paths_json['src']['order'] = "unordered"
+      paths_json['dst']['chain-id'] = f"ibc-{j}"
+      paths_json['dst']['rpc-addr'] = f"http://localhost:2655{j}"
+      paths_json['dst']['order'] = "unordered"
+      f=json.dumps(paths_json)
+      with open(f"{PATHS_FOLDER}/mypath{i}-{j}","w") as F:
+        F.write(f)
+
+def deployOne():
+  print("deploy")
+
+if __name__ == "__main__":
+  create_paths(10)
+  #deployOne()
+
