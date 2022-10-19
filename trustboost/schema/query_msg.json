@@ -1,0 +1,223 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QueryMsg",
+  "oneOf": [
+    {
+      "description": "GetValue querys value for given key, GetState returns the current state, GetTx returns tx with tx_id",
+      "type": "object",
+      "required": [
+        "get_state"
+      ],
+      "properties": {
+        "get_state": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_state_progress"
+      ],
+      "properties": {
+        "get_state_progress": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_channels"
+      ],
+      "properties": {
+        "get_channels": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_test"
+      ],
+      "properties": {
+        "get_test": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_highest_req"
+      ],
+      "properties": {
+        "get_highest_req": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_highest_abort"
+      ],
+      "properties": {
+        "get_highest_abort": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_received_suggest"
+      ],
+      "properties": {
+        "get_received_suggest": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_send_all_upon"
+      ],
+      "properties": {
+        "get_send_all_upon": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_test_queue"
+      ],
+      "properties": {
+        "get_test_queue": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_echo"
+      ],
+      "properties": {
+        "get_echo": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_key1"
+      ],
+      "properties": {
+        "get_key1": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_key2"
+      ],
+      "properties": {
+        "get_key2": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_key3"
+      ],
+      "properties": {
+        "get_key3": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_lock"
+      ],
+      "properties": {
+        "get_lock": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_done"
+      ],
+      "properties": {
+        "get_done": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_abort_info"
+      ],
+      "properties": {
+        "get_abort_info": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_debug"
+      ],
+      "properties": {
+        "get_debug": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_ibc_debug"
+      ],
+      "properties": {
+        "get_ibc_debug": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

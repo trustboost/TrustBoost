@@ -1,0 +1,1133 @@
+#!/bin/bash
+
+#NODE_0=http://127.0.0.1:26555 
+#NODE_1=http://127.0.0.1:26556
+#NODE_2=http://127.0.0.1:26557 
+#NODE_3=http://127.0.0.1:26558 
+
+#binary(register) = eyJyZWdpc3RlciI6eyJuYW1lIjoidGVzdF9mcm9tX3RydXN0Ym9vc3Rfc2VwdCJ9fQ==
+#binary(register_tb) = eyJyZWdpc3Rlcl90YiI6eyJuYW1lIjoidGVzdF9mcm9tX3RydXN0Ym9vc3Rfc2VwdCJ9fQ==
+
+node_prefix=http://127.0.0.1:2655 #+ port number in the end
+NODE_0=http://127.0.0.1:26550
+NODE_1=http://127.0.0.1:26551
+NODE_2=http://127.0.0.1:26552
+NODE_3=http://127.0.0.1:26553
+
+
+KEYRING_0='--keyring-backend test --keyring-dir ./data/ibc-0'
+KEYRING_1='--keyring-backend test --keyring-dir ./data/ibc-1'
+KEYRING_2='--keyring-backend test --keyring-dir ./data/ibc-2'
+KEYRING_3='--keyring-backend test --keyring-dir ./data/ibc-3'
+
+GAS_FLAG='--gas-prices 0.025stake --gas auto --gas-adjustment 1.5'
+USER="user"
+INIT_JSON='{"count": 1}'
+INIT_JSON_2='{ "reflect_code_id": 1}'
+
+TB_INPUT='{"binary": f,"public_key": "f", "signature": []}'
+
+NS_CONTRACT_ADDRESS="wasm14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s0phg4d"
+INSTANTIATE_MSG_CHAIN0="{\"chain_id\": 0,\"input\": {\"binary\": \"f\",\"public_key\": [], \"signature\": []}, \"contract_addr\": \"$NS_CONTRACT_ADDRESS\"}"
+INSTANTIATE_MSG_CHAIN1="{\"chain_id\": 1,\"input\": {\"binary\": \"f\",\"public_key\": [], \"signature\": []}, \"contract_addr\": \"$NS_CONTRACT_ADDRESS\"}"
+INSTANTIATE_MSG_CHAIN2="{\"chain_id\": 2,\"input\": {\"binary\": \"f\",\"public_key\": [], \"signature\": []}, \"contract_addr\": \"$NS_CONTRACT_ADDRESS\"}"
+INSTANTIATE_MSG_CHAIN3="{\"chain_id\": 3,\"input\": {\"binary\": \"f\",\"public_key\": [], \"signature\": []}, \"contract_addr\": \"$NS_CONTRACT_ADDRESS\"}"
+
+target=$2 # node number, target chain
+param1=$3
+param2=$4
+param3=$5
+
+PUBKEY="[3, 117, 218, 217, 204, 108,  10,167, 180, 109,  53, 118, 212, 125,89, 153, 137, 107, 192, 224, 137,206,  74, 205, 192, 206, 125,  73,150, 179, 250,  70, 243]"
+SIGNATURE="[244,  60,  19,  30,  60,  31, 121, 112, 100, 181, 197,35, 155, 235,  50, 237, 232, 189, 120, 114,  47,   4,65, 179, 122,  11,  38,  66,  53, 109, 212, 121,  51,41, 183,  65, 250,  44,   2,  78, 154,  82,  12,  82,168, 157, 234, 208, 241, 238, 185, 244,  17,  39,  12,197, 249,  30, 127,  45, 249, 170,  49, 138]"
+
+# -------- TARGET_PARAMS ------- #
+keyring="--keyring-backend test --keyring-dir ./data/ibc-$target"
+chain="ibc-$2"
+node=http://127.0.0.1:2655$2
+# -------- TARGET_PARAMS ------- #
+
+
+listKeys()
+{
+    cmd="wasmd keys list $(echo $keyring) --output json"
+    set -x 
+    $cmd
+}
+
+balance()
+{
+    set -x 
+    wasmd query bank balances $param1 --node $node --chain-id ibc-$target
+}
+
+deployAll()
+{
+    echo "killing all relayers..."
+    set -x
+    killall rly
+    set -e
+    cd ./trust-boost/
+    RUSTFLAGS='-C link-arg=-s' cargo wasm
+    cd ..
+
+#    docker run --rm -v "$(pwd)":/code \
+#        --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+#        --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+#        cosmwasm/rust-optimizer-arm64:0.12.5 ./trust-boost/
+
+    file="trust-boost/target/wasm32-unknown-unknown/release/trust_boost.wasm"
+    #wasmd's MaxWasmSize change to higher https://github.com/CosmWasm/wasmd/blob/bfb4d31fcafa9acf148e7a9b07b3baed5938c38a/x/wasm/types/validation.go#L12 to skip optimization
+#    docker run --rm -v "$(pwd)":/code \
+#        --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+#        --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+#        cosmwasm/rust-optimizer-arm64:0.12.5 ./simplestorage/
+
+    # deploy smart contract to all chains...
+    wasmd tx wasm store $file --node $NODE_0 --from $USER --chain-id ibc-0 $GAS_FLAG --broadcast-mode block -y $KEYRING_0
+    sleep 1
+    wasmd tx wasm store $file --node $NODE_1 --from $USER --chain-id ibc-1 $GAS_FLAG --broadcast-mode block -y $KEYRING_1
+    sleep 1
+    wasmd tx wasm store $file --node $NODE_2 --from $USER --chain-id ibc-2 $GAS_FLAG --broadcast-mode block -y $KEYRING_2
+
+    #get code ids at each chain
+    code_id_0=$(wasmd query wasm list-code --node $NODE_0 --output json | jq -r ".code_infos[-1] | .code_id")
+    code_id_1=$(wasmd query wasm list-code --node $NODE_1 --output json | jq -r ".code_infos[-1] | .code_id")
+    code_id_2=$(wasmd query wasm list-code --node $NODE_2 --output json | jq -r ".code_infos[-1] | .code_id")
+
+    #instantiate contracts at all chains
+    wasmd tx wasm instantiate $code_id_0 "$INSTANTIATE_MSG_CHAIN0" --node $NODE_0 --from $USER --chain-id ibc-0 $GAS_FLAG -y --label "simplestorage" --no-admin $KEYRING_0
+    wasmd tx wasm instantiate $code_id_1 "$INSTANTIATE_MSG_CHAIN1" --node $NODE_1 --from $USER --chain-id ibc-1 $GAS_FLAG -y --label "simplestorage" --no-admin $KEYRING_1
+    wasmd tx wasm instantiate $code_id_2 "$INSTANTIATE_MSG_CHAIN2" --node $NODE_2 --from $USER --chain-id ibc-2 $GAS_FLAG -y --label "simplestorage" --no-admin $KEYRING_2
+
+    sleep 2
+    contract_address_0=$(wasmd query wasm list-contract-by-code $code_id_0 --node $NODE_0 --output json | jq -r '.contracts[-1]')
+    contract_address_1=$(wasmd query wasm list-contract-by-code $code_id_1 --node $NODE_1 --output json | jq -r '.contracts[-1]')
+    contract_address_2=$(wasmd query wasm list-contract-by-code $code_id_2 --node $NODE_2 --output json | jq -r '.contracts[-1]')
+
+    if [ -z $contract_address_0 ] || [ -z $contract_address_1 ] || [ -z $contract_address_2 ] || [ -z $contract_address_2 ];  then
+        echo "!!!!!!!!!!!!!!!!!!!! retrying getting contract address !!!!!!!!!!!!!!"
+        sleep 2
+        contract_address_0=$(wasmd query wasm list-contract-by-code $code_id_0 --node $NODE_0 --output json | jq -r '.contracts[-1]')
+        contract_address_1=$(wasmd query wasm list-contract-by-code $code_id_1 --node $NODE_1 --output json | jq -r '.contracts[-1]')
+        contract_address_2=$(wasmd query wasm list-contract-by-code $code_id_2 --node $NODE_2 --output json | jq -r '.contracts[-1]')
+        contract_address_3=$(wasmd query wasm list-contract-by-code $code_id_3 --node $NODE_3 --output json | jq -r '.contracts[-1]')
+    fi
+
+    ibc_port_0=$(wasmd query wasm contract $contract_address_0 --node $NODE_0 --output --json | jq -r '.contract_info | .ibc_port_id')
+    ibc_port_1=$(wasmd query wasm contract $contract_address_1 --node $NODE_1 --output --json | jq -r '.contract_info | .ibc_port_id')
+    ibc_port_2=$(wasmd query wasm contract $contract_address_2 --node $NODE_2 --output --json | jq -r '.contract_info | .ibc_port_id')
+
+
+    echo "-----------------------------------------Link Setup-----------------------------------------------"
+    set -x
+    rly tx link mypath0-1 --src-port $ibc_port_0 --dst-port $ibc_port_1 --order ordered --version trustboost-test 
+    rly tx link mypath0-2 --src-port $ibc_port_0 --dst-port $ibc_port_2 --order ordered --version trustboost-test
+    rly tx link mypath1-2 --src-port $ibc_port_1 --dst-port $ibc_port_2 --order ordered --version trustboost-test
+    set +x
+
+    sleep 2
+    set +x
+    echo "------------------------------------------Addreses-------------------------------------------------------"
+    echo "Deployed with code id $code_id_0 on chain 0 Contract Address = $contract_address_0 ibc_port = $ibc_port_0"
+    echo "Deployed with code id $code_id_1 on chain 1 Contract Address = $contract_address_1 ibc_port = $ibc_port_1"
+    echo "Deployed with code id $code_id_2 on chain 2 Contract Address = $contract_address_2 ibc_port = $ibc_port_2"
+    echo "-----------------------------------------Channels-----------------------------------------------"
+    set -x
+    chan0=$(wasmd query ibc channel channels --node $NODE_0 --output --json | jq -r ".channels" | jq -c 'map(select(.connection_hops[] |contains("connection-0")  ))' | jq -c "map(select(.port_id | contains(\"$contract_address_0\"))) | last" | jq -r .channel_id)
+    chan1=$(wasmd query ibc channel channels --node $NODE_1 --output --json | jq -r ".channels" | jq -c 'map(select(.connection_hops[] |contains("connection-0")  ))' | jq -c "map(select(.port_id | contains(\"$contract_address_1\"))) | last" | jq -r .channel_id)
+    chan2=$(wasmd query ibc channel channels --node $NODE_2 --output --json | jq -r ".channels" | jq -c 'map(select(.connection_hops[] |contains("connection-0")  ))' | jq -c "map(select(.port_id | contains(\"$contract_address_2\"))) | last" | jq -r .channel_id)
+    # TODO use | jq '.[] | .channel_id')
+    set +x
+    echo "Channel Id for 01: $chan0"
+    echo "Channel Id for 02: $chan1"
+    echo "Channel Id for 03: $chan2"
+
+    #rly start path01 --debug-addr localhost:7596 & 
+    #rly start path02 --debug-addr localhost:7597 &
+
+    out="contract address: $contract_address_0 \n"
+    out+="Channel id 01: $chan0 \n"
+    out+="Channel id 02: $chan1 \n"
+    out+="Channel id 03: $chan2 \n"
+
+    #echo "Replacing channels-list with $chan0"
+    #sed -i ".bu" 's/""/allowlist/g' ~/.relayer/config/config.yaml
+    #sed -i ".bu" "s/\[.*\]/\["$chan0"\]/g" ~/.relayer/config/config.yaml
+    #sed -i ".bu" "57s/\[.*\]/\["$chan0"\]/g" ~/.relayer/config/config.yaml
+    #sed -i ".bu" "69s/\[.*\]/\["$chan1"\]/g" ~/.relayer/config/config.yaml
+    #sed -i ".bu" "81s/\[.*\]/\["$chan2"\]/g" ~/.relayer/config/config.yaml
+
+    echo "rly tx relay-packets mypath0-1 $chan0"
+    echo "rly tx relay-packets mypath0-2 $chan1"
+    echo "rly tx relay-packets mypath1-2 $chan2"
+
+    echo "rly tx relay-acknowledgements mypath0-1 $chan0"
+    echo "rly tx relay-acknowledgements mypath0-2 $chan1"
+    echo "rly tx relay-acknowledgements mypath1-2 $chan2"
+
+
+    echo -e $out > out.log
+}
+
+deployNSMany()
+{
+    end_index=$(expr $target - 1)
+    set -e
+    for k in $(seq 0 $end_index)
+    do
+        privateDeployNS $k
+    done
+}
+
+deployMany() 
+{
+    end_index=$(expr $target - 1)
+
+    set -e
+    cd ./trust-boost/
+    RUSTFLAGS='-C link-arg=-s' cargo wasm
+    cd ..
+
+    # deploying all...
+    for k in $(seq 0 $end_index)
+    do
+        privateDeployOne $k
+    done
+
+    echo "deploying done.... wait 3 seconds for things to be commited...."
+    sleep 3 
+    echo "starting linking...."
+
+    # creating links...
+    for i in $(seq 0 $end_index)
+    do
+        start_index=$(expr $i + 1)
+        # zsh will overshoot indexes
+        if [ $start_index -gt $end_index ]; then
+            break
+        fi
+
+        for j in $(seq $start_index $end_index)
+        do 
+            set -e
+            privateCreateLink $i $j
+        done
+    done 
+
+    echo "deploy and linking all done...."
+}
+
+
+privateDeployOne()
+{
+    keyring="--keyring-backend test --keyring-dir ./data/ibc-$1"
+    chain="ibc-$1"
+    node=http://127.0.0.1:2655$1
+    user="USER"
+
+
+    file="trust-boost/target/wasm32-unknown-unknown/release/trust_boost.wasm"
+    set -x
+    wasmd tx wasm store $file --node $node --from $user --chain-id $chain --gas-prices "0.025stake" --gas auto --gas-adjustment 1.5 --broadcast-mode block -y $keyring
+    set +x
+
+    # get code id of deployed contract and
+    # instantiate contract and get address of the instantiated contract
+    init_msg="{\"chain_id\": $1,\"input\": {\"binary\": \"f\",\"public_key\": [], \"signature\": []}, \"contract_addr\": \"$NS_CONTRACT_ADDRESS\"}"
+
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    wasmd tx wasm instantiate $code_id "$init_msg" --node $node --from $user --chain-id $chain $GAS_FLAG -y --label "simplestorage" --no-admin $keyring
+}
+
+privateCreateLink()
+{
+    set -e
+
+    echo "Creating link $1-$2"
+    src=$1
+    chain_id_src="ibc-$1"
+    dest=$2
+    chain_id_dest="ibc-$2"
+    node_src=http://127.0.0.1:2655$1
+    node_dest=http://127.0.0.1:2655$2
+    keyring_src="--keyring-backend test --keyring-dir ./data/ibc-$1"
+    keyring_dest="--keyring-backend test --keyring-dir ./data/ibc-$2"
+    user="USER"
+
+    code_id_src=$(wasmd query wasm list-code --node $node_src --output json | jq -r ".code_infos[-1] | .code_id")
+    code_id_dest=$(wasmd query wasm list-code --node $node_dest --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address_src=$(wasmd query wasm list-contract-by-code $code_id_src --node $node_src --output json | jq -r '.contracts[-1]')
+    contract_address_dest=$(wasmd query wasm list-contract-by-code $code_id_dest --node $node_dest --output json | jq -r '.contracts[-1]')
+
+    ibc_port_src=$(wasmd query wasm contract $contract_address_src --node $node_src --output --json | jq -r '.contract_info | .ibc_port_id')
+    ibc_port_dest=$(wasmd query wasm contract $contract_address_dest --node $node_dest --output --json | jq -r '.contract_info | .ibc_port_id')
+
+
+    link="mypath$1-$2"
+    rly tx link $link --src-port $ibc_port_src --dst-port $ibc_port_dest --order ordered --version trustboost-test 
+}
+
+privateDeployNS() 
+{
+    keyring="--keyring-backend test --keyring-dir ./data/ibc-$1"
+    chain="ibc-$1"
+    node=http://127.0.0.1:2655$1
+    init='{"count": 1}'
+    user="USER"
+
+    set -e
+    set -x
+    cd ./nameservice/
+    RUSTFLAGS='-C link-arg=-s' cargo wasm
+    cd ..
+
+    file="nameservice/target/wasm32-unknown-unknown/release/cw_nameservice.wasm"
+    wasmd tx wasm store $file --node $node --from $user --chain-id $chain --gas-prices "0.025stake" --gas auto --gas-adjustment 1.5 --broadcast-mode block -y $keyring
+
+    # get code id of deployed contract and
+    # instantiate contract and get address of the instantiated contract
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    wasmd tx wasm instantiate $code_id "$INSTANTIATE_MSG_CHAIN0" --node $node --from $user --chain-id $chain $GAS_FLAG -y --label "nameservice" --no-admin $keyring
+    # wait 2 secs for the contract to be deployed properly
+    sleep 2
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+
+    if [ -z $contract_address ]; then
+        echo "retrying getting contract address...."
+        sleep 2
+        contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    fi
+
+    ibc_port=$(wasmd query wasm contract $contract_address --node $node --output --json | jq -r '.contract_info | .ibc_port_id')
+    set +x
+    echo "Deployed with code id $code_id on Node 0 Contract Address = $contract_address ibc_port = $ibc_port"
+}
+
+deployOne()
+{
+    node=$NODE_0
+    user=$USER
+    keyring=$KEYRING_0
+    init='{"count": 1}'
+    chain='ibc-0'
+    set -e
+    set -x
+    cd ./trust-boost/
+    RUSTFLAGS='-C link-arg=-s' cargo wasm
+    cd ..
+
+    file="trust-boost/target/wasm32-unknown-unknown/release/trust_boost.wasm"
+    wasmd tx wasm store $file --node $node --from $user --chain-id $chain --gas-prices "0.025stake" --gas auto --gas-adjustment 1.5 --broadcast-mode block -y $keyring
+
+    # get code id of deployed contract and
+    # instantiate contract and get address of the instantiated contract
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    wasmd tx wasm instantiate $code_id "$INSTANTIATE_MSG_CHAIN0" --node $node --from $user --chain-id $chain $GAS_FLAG -y --label "simplestorage" --no-admin $keyring
+    # wait 2 secs for the contract to be deployed properly
+    sleep 2
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+
+    if [ -z $contract_address ]; then
+        echo "retrying getting contract address...."
+        sleep 2
+        contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    fi
+
+    ibc_port=$(wasmd query wasm contract $contract_address --node $node --output --json | jq -r '.contract_info | .ibc_port_id')
+    set +x
+    echo "Deployed with code id $code_id on Node 0 Contract Address = $contract_address ibc_port = $ibc_port"
+}
+
+deployns()
+{
+    node=$NODE_0
+    user=$USER
+    keyring=$KEYRING_0
+    init='{"count": 1}'
+    chain='ibc-0'
+    set -e
+    set -x
+    cd ./nameservice/
+    RUSTFLAGS='-C link-arg=-s' cargo wasm
+    cd ..
+
+    file="nameservice/target/wasm32-unknown-unknown/release/cw_nameservice.wasm"
+    wasmd tx wasm store $file --node $node --from $user --chain-id $chain --gas-prices "0.025stake" --gas auto --gas-adjustment 1.5 --broadcast-mode block -y $keyring
+
+    # get code id of deployed contract and
+    # instantiate contract and get address of the instantiated contract
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    wasmd tx wasm instantiate $code_id "$INSTANTIATE_MSG_CHAIN0" --node $node --from $user --chain-id $chain $GAS_FLAG -y --label "nameservice" --no-admin $keyring
+    # wait 2 secs for the contract to be deployed properly
+    sleep 2
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+
+    if [ -z $contract_address ]; then
+        echo "retrying getting contract address...."
+        sleep 2
+        contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    fi
+
+    ibc_port=$(wasmd query wasm contract $contract_address --node $node --output --json | jq -r '.contract_info | .ibc_port_id')
+    set +x
+    echo "Deployed with code id $code_id on Node 0 Contract Address = $contract_address ibc_port = $ibc_port"
+}
+
+deployNSAll()
+{
+    set -e
+    set -x
+    cd ./nameservice/
+    RUSTFLAGS='-C link-arg=-s' cargo wasm
+    cd ..
+    init='{"count": 1}'
+
+    file="nameservice/target/wasm32-unknown-unknown/release/cw_nameservice.wasm"
+    wasmd tx wasm store $file --node $NODE_0 --from $USER --chain-id ibc-0 --gas-prices "0.025stake" --gas auto --gas-adjustment 1.5 --broadcast-mode block -y $KEYRING_0
+    wasmd tx wasm store $file --node $NODE_1 --from $USER --chain-id ibc-1 --gas-prices "0.025stake" --gas auto --gas-adjustment 1.5 --broadcast-mode block -y $KEYRING_1
+    wasmd tx wasm store $file --node $NODE_2 --from $USER --chain-id ibc-2 --gas-prices "0.025stake" --gas auto --gas-adjustment 1.5 --broadcast-mode block -y $KEYRING_2
+
+    # get code id of deployed contract and
+    # instantiate contract and get address of the instantiated contract
+    code_id_0=$(wasmd query wasm list-code --node $NODE_0 --output json | jq -r ".code_infos[-1] | .code_id")
+    code_id_1=$(wasmd query wasm list-code --node $NODE_1 --output json | jq -r ".code_infos[-1] | .code_id")
+    code_id_2=$(wasmd query wasm list-code --node $NODE_2 --output json | jq -r ".code_infos[-1] | .code_id")
+
+    wasmd tx wasm instantiate $code_id_0 "$init" --node $NODE_0 --from $USER --chain-id ibc-0 $GAS_FLAG -y --label "nameservice" --no-admin $KEYRING_0
+    wasmd tx wasm instantiate $code_id_1 "$init" --node $NODE_1 --from $USER --chain-id ibc-1 $GAS_FLAG -y --label "nameservice" --no-admin $KEYRING_1
+    wasmd tx wasm instantiate $code_id_2 "$init" --node $NODE_2 --from $USER --chain-id ibc-2 $GAS_FLAG -y --label "nameservice" --no-admin $KEYRING_2
+
+    # wait 2 secs for the contract to be deployed properly
+    sleep 2
+    contract_address_0=$(wasmd query wasm list-contract-by-code $code_id_0 --node $NODE_0 --output json | jq -r '.contracts[-1]')
+    contract_address_1=$(wasmd query wasm list-contract-by-code $code_id_1 --node $NODE_1 --output json | jq -r '.contracts[-1]')
+    contract_address_2=$(wasmd query wasm list-contract-by-code $code_id_2 --node $NODE_2 --output json | jq -r '.contracts[-1]')
+
+    if [ -z $contract_address ]; then
+        echo "retrying getting contract address...."
+        sleep 2
+        contract_address=$(wasmd query wasm list-contract-by-code $code_id_0 --node $NODE_0 --output json | jq -r '.contracts[-1]')
+    fi
+
+    set +x
+    echo "Deployed with code id $code_id_0 on Node 0 Contract Address = $contract_address_0"
+    echo "Deployed with code id $code_id_1 on Node 1 Contract Address = $contract_address_1"
+    echo "Deployed with code id $code_id_2 on Node 2 Contract Address = $contract_address_2"
+
+}
+
+
+input() 
+{
+    param1=eyJyZWdpc3Rlcl90YiI6eyJuYW1lIjoidGVzdF9mcm9tX3RydXN0Ym9vc3Rfc2VwdCJ9fQ==
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    #  {"binary": "f","public_key": "f", "signature": []}
+    EXEC_MSG="{ \"input\" : { \"value\" :{ \"binary\" : \"$param1\",\"public_key\" : [], \"signature\" : []}}}"
+    EXEC_MSG="{ \"input\" : { \"value\" :{ \"binary\" : \"$param1\",\"public_key\" : $PUBKEY, \"signature\" : $SIGNATURE }}}"
+    wasmd tx wasm execute $contract_address "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring
+}
+
+preInput()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    #EXEC_MSG="{ \"pre_input\" : { \"value\" : \"$param1\"}}"
+    EXEC_MSG="{ \"pre_input\" : { \"value\" :{ \"binary\" : \"$param1\",\"public_key\" : [], \"signature\" : []}}}"
+    wasmd tx wasm execute $contract_address "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring -y
+}
+
+preInputAll()
+{
+    
+    preInput
+    preInput
+    preInput
+}
+
+debugKey3() 
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    #  {"binary": "f","public_key": "f", "signature": []}
+    EXEC_MSG="{ \"key3\" : { \"val\" :{ \"binary\" : \"$param1\",\"public_key\" : [], \"signature\" : []}, \"view\": 0, \"local_channel_id\": \"$param2\"}}"
+    wasmd tx wasm execute $contract_address "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring
+}
+
+debugLock()
+{
+    param1=eyJyZWdpc3Rlcl90YiI6eyJuYW1lIjoidGVzdF9mcm9tX3RydXN0Ym9vc3Rfc2VwdCJ9fQ==
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    #  {"binary": "f","public_key": "f", "signature": []}
+    EXEC_MSG="{ \"lock\" : { \"val\" :{ \"binary\" : \"$param1\",\"public_key\" : $PUBKEY, \"signature\" : $SIGNATURE}, \"view\": 0, \"local_channel_id\": \"$param2\"}}"
+    wasmd tx wasm execute $contract_address "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring
+}
+
+debugDone()
+{
+    param1=eyJyZWdpc3Rlcl90YiI6eyJuYW1lIjoidGVzdF9mcm9tX3RydXN0Ym9vc3Rfc2VwdCJ9fQ==
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    #  {"binary": "f","public_key": "f", "signature": []}
+    EXEC_MSG="{ \"done\" : { \"val\" :{ \"binary\" : \"$param1\",\"public_key\" : $PUBKEY, \"signature\" : $SIGNATURE}, \"view\": 0, \"local_channel_id\": \"$param2\"}}"
+    wasmd tx wasm execute $contract_address "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring
+}
+
+
+execAbort() 
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    EXEC_MSG="{\"abort\": {}}" 
+    wasmd tx wasm execute $contract_address "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring
+}
+
+
+inputTest() 
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    EXEC_MSG="{ \"input_test\" : { \"val\" : \"$param1\" , \"val2\" : 2}}"
+    wasmd tx wasm execute $contract_address "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring
+}
+
+clientRequest()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    EXEC_MSG="{\"client_request\": {\"value\": \"$param1\"}}"
+    wasmd tx wasm execute $contract_address "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring
+}
+
+queryUV() 
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_uncomitted_value\": {\"key\": $param1}}"
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --output json --chain-id $chain --node $node
+}
+
+queryCV() 
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_comitted_value\": {\"key\": $param1}}"
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --output json --chain-id $chain --node $node
+}
+
+queryChan()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_channels\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node    
+}
+
+queryIbcChan()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_channels\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryDebug()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_debug\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryIBCDebug()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_ibc_debug\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryDebugReceive()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_debug_receive\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+
+queryHighestRequest()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_highest_req\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryHighestAbort()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_highest_abort\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+querySendAllUpon()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_send_all_upon\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+querySuggestion()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_received_suggest\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryEcho()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_echo\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryDone()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_done\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryKey1()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_key1\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryKey2()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_key2\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryKey3()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_key3\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryLock()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_lock\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+
+queryClientRequest()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_client_req_count\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryTestQueue()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_test_queue\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+queryTest()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_test\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node
+}
+
+
+queryState()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_state\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node    
+}
+
+queryStateProgress()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_state_progress\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node    
+}
+
+queryAbort()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_abort_info\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node    
+}
+
+
+setKey()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_state\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node    
+}
+
+registerName() 
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    EXEC_MSG="{\"register\": {\"name\": \"$param1\"}}"
+    wasmd tx wasm execute $NS_CONTRACT_ADDRESS "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring
+}
+
+registerNameTB() 
+{
+    set -x
+    #eyJyZWdpc3Rlcl90YiI6eyJuYW1lIjoidGVzdF9mcm9tX3RydXN0Ym9vc3Rfc2VwdCJ9fQ==
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    EXEC_MSG='{"register_tb":{"name":"test_from_trustboost_sept","tb_user":"wasm1pfu4h0g9ye26nlm2vay8m747pwc3quhsh5c94p"}}'
+    #EXEC_MSG="{\"register\": {\"name\": \"test_kekw\"}}"
+    wasmd tx wasm execute $NS_CONTRACT_ADDRESS "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring
+}
+
+
+resolveRecord() 
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"resolve_record\": {\"name\": \"$param1\"}}"
+    wasmd query wasm contract-state smart $NS_CONTRACT_ADDRESS "$QUERY_MSG" --chain-id $chain --node $node    
+}
+
+checkSignature()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+
+    QUERY_MSG="{ \"check_signature\" : { \"val\" :{ \"binary\" : \"$param1\",\"public_key\" : $param2, \"signature\" : $param3}}}"
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node    
+}
+
+getAddress()
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+
+
+    QUERY_MSG="{ \"get_address\" : { \"val\" :{ \"binary\" : \"$param1\",\"public_key\" : $param2, \"signature\" : $param3}}}"
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node    
+}
+
+listChannels() 
+{
+    set -x
+    wasmd query ibc channel channels --node $node
+}
+
+triggerDone2() 
+{
+    set -x
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    EXEC_MSG='{ "trigger": { "behavior": "done_2"} }'
+    wasmd tx wasm execute $contract_address "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring
+}
+
+
+queryStateMany() 
+{
+    
+    end_index=$(expr $target - 1)
+    for k in $(seq 0 $end_index)
+    do
+        echo "querying state for node $k..."
+        privateQueryState $k
+        sleep 1
+    done
+}
+
+resolveRecordMany() 
+{
+    
+    end_index=$(expr $target - 1)
+    for k in $(seq 0 $end_index)
+    do
+        echo "querying record for node $k..."
+        privateResolveRecord $k
+        sleep 1
+    done
+}
+
+
+resetMany() 
+{
+    
+    end_index=$(expr $target - 1)
+    for k in $(seq 0 $end_index)
+    do
+        echo "reseting TB for node $k..."
+        privateResetTBOne $k
+        sleep 30
+        echo "reseting NS for node $k..."
+        privateResetNSOne $k
+        sleep 30
+    done
+}
+
+inputMany() 
+{
+    set -e
+    end_index=$(expr $target - 1)
+    for k in $(seq 0 $end_index)
+    do
+        if [ $k -eq 0 ]; then
+            # start 0 last...
+            continue 
+        fi
+        echo "starting input for node $k......"
+        privateInput $k
+        sleep 15
+    done
+
+    echo "starting input for node 0"
+    privateInput 0
+
+}
+
+
+privateResetTBOne() 
+{
+    keyring="--keyring-backend test --keyring-dir ./data/ibc-$1"
+    chain="ibc-$1"
+    node=http://127.0.0.1:2655$1
+    user="USER"
+    param1=eyJyZWdpc3Rlcl90YiI6eyJuYW1lIjoidGVzdF9mcm9tX3RydXN0Ym9vc3Rfc2VwdCJ9fQ==
+
+    set -e
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    #EXEC_MSG="{ \"pre_input\" : { \"value\" :{ \"binary\" : \"$param1\",\"public_key\" : $PUBKEY, \"signature\" : $SIGNATURE}, \"view\": 0, \"local_channel_id\": \"$param2\"}}"
+    EXEC_MSG="{ \"pre_input\" : { \"value\" :{ \"binary\" : \"RESET_TB\",\"public_key\" : [], \"signature\" : []}}}"
+    set -x
+    wasmd tx wasm execute $contract_address "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring -y
+    set +x
+}
+
+privateResetNSOne() 
+{
+    keyring="--keyring-backend test --keyring-dir ./data/ibc-$1"
+    chain="ibc-$1"
+    node=http://127.0.0.1:2655$1
+    user="USER"
+
+    set -e
+    EXEC_MSG='{ "delete_all_records": { "name": "test_from_trustboost_sept"} }'
+    set -x
+    wasmd tx wasm execute $NS_CONTRACT_ADDRESS "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring -y
+    set +x
+}
+
+privateInput() 
+{
+    keyring="--keyring-backend test --keyring-dir ./data/ibc-$1"
+    chain="ibc-$1"
+    node=http://127.0.0.1:2655$1
+    user="USER"
+    param1=eyJyZWdpc3Rlcl90YiI6eyJuYW1lIjoidGVzdF9mcm9tX3RydXN0Ym9vc3Rfc2VwdCJ9fQ==
+
+    set -e
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    #EXEC_MSG="{ \"input\" : { \"value\" :{ \"binary\" : \"$param1\",\"public_key\" : [], \"signature\" : []}}}"
+    EXEC_MSG="{ \"input\" : { \"value\" :{ \"binary\" : \"$param1\",\"public_key\" : $PUBKEY, \"signature\" : $SIGNATURE }}}"
+
+    set -x
+    wasmd tx wasm execute $contract_address "$EXEC_MSG" --amount 100stake $GAS_FLAG --node $node --chain-id $chain --from $USER $keyring -y
+    set +x
+}
+
+privateQueryState()
+{
+    keyring="--keyring-backend test --keyring-dir ./data/ibc-$1"
+    chain="ibc-$1"
+    node=http://127.0.0.1:2655$1
+    user="USER"
+    param1=eyJyZWdpc3Rlcl90YiI6eyJuYW1lIjoidGVzdF9mcm9tX3RydXN0Ym9vc3Rfc2VwdCJ9fQ==
+
+    set -e
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"get_state\": {}}" 
+    wasmd query wasm contract-state smart $contract_address "$QUERY_MSG" --chain-id $chain --node $node    
+}
+
+privateResolveRecord()
+{
+    keyring="--keyring-backend test --keyring-dir ./data/ibc-$1"
+    chain="ibc-$1"
+    node=http://127.0.0.1:2655$1
+    user="USER"
+    param1="test_from_trustboost_sept"
+
+    set -e
+    code_id=$(wasmd query wasm list-code --node $node --output json | jq -r ".code_infos[-1] | .code_id")
+    contract_address=$(wasmd query wasm list-contract-by-code $code_id --node $node --output json | jq -r '.contracts[-1]')
+    QUERY_MSG="{\"resolve_record\": {\"name\": \"$param1\"}}"
+    wasmd query wasm contract-state smart $NS_CONTRACT_ADDRESS "$QUERY_MSG" --chain-id $chain --node $node    
+}
+
+queryRelayerBalanceMany()
+{
+    set -e
+    end_index=$(expr $target - 1)
+    for k in $(seq 0 $end_index)
+    do
+        echo "getting relayer balance at node $k......"
+            privateQueryRelayerBalance $k
+        sleep 1
+    done
+}
+
+queryRelayerBalance()
+{
+    set -e
+    end_index=$(expr $target - 1)
+    queryRelayerBalance $end_index
+}
+
+queryUserBalanceMany()
+{
+    set -e
+    end_index=$(expr $target - 1)
+    for k in $(seq 0 $end_index)
+    do
+        echo "getting user balance at node $k......"
+            privateQueryUserBalance $k
+        sleep 1
+    done
+}
+
+privateQueryRelayerBalance() 
+{
+    keyring="--keyring-backend test --keyring-dir ./data/ibc-$1"
+    chain="ibc-$1"
+    node=http://127.0.0.1:2655$1
+    user="testkey"
+
+    set -x 
+    address=$(wasmd keys list $keyring --output json | jq ".[] | select(.name==\"$user\")" | jq -r .address)
+    wasmd query bank balances $address --node $node --chain-id ibc-$target
+}
+
+privateQueryUserBalance() 
+{
+    keyring="--keyring-backend test --keyring-dir ./data/ibc-$1"
+    chain="ibc-$1"
+    node=http://127.0.0.1:2655$1
+    user="user"
+
+    set -x 
+    address=$(wasmd keys list $keyring --output json | jq ".[] | select(.name==\"$user\")" | jq -r .address)
+    wasmd query bank balances $address --node $node --chain-id ibc-$target
+}
+
+if [ -z $1 ]; then
+    echo "Need Param 1 what to do"
+    exit 1
+fi
+
+
+if [ $1 = "deployAll" ]; then 
+    deployAll
+    exit 0
+elif [ $1 = "deploy4" ]; then
+    deploy4
+    exit 0
+elif [ $1 = "deployOne" ]; then
+    deployOne
+    exit 0
+elif [ $1 = "deployns" ]; then
+    deployns
+    exit 0
+elif [ $1 = "deployNSMany" ]; then
+    deployNSMany
+    exit 0
+elif [ $1 = "deployNSAll" ]; then
+    deployNSAll
+    exit 0
+fi
+
+
+if [ -z $2 ]; then
+    echo "Need target chain 0/1/2"
+    exit 1
+fi 
+
+
+if [ $1 = "listKeys" ]; then 
+    listKeys
+elif [ $1 = "balance" ]; then
+    if [ -z $3 ]; then
+        echo "Need address $3"
+        exit 1
+    fi 
+    balance
+elif [ $1 = "listChannels" ]; then
+    listChannels
+elif [ $1 = "setUV" ]; then
+    setUV
+elif [ $1 = "deployNSMany" ]; then
+    deployNSMany
+elif [ $1 = "deployMany" ]; then
+    deployMany
+elif [ $1 = "queryUV" ] || [ $1 = "getUV" ]; then
+    queryUV
+elif [ $1 = "queryCV" ]  || [ $1 = "getCV" ]; then
+    queryCV
+elif [ $1 = "input" ]; then
+    input
+elif [ $1 = "preInput" ]; then
+    preInput
+elif [ $1 = "execAbort" ]; then
+    execAbort
+elif [ $1 = "debugKey3" ]; then
+    debugKey3
+elif [ $1 = "debugLock" ]; then
+    debugLock
+elif [ $1 = "debugDone" ]; then
+    debugDone
+elif [ $1 = "inputTest" ]; then
+    inputTest
+elif [ $1 = "clientRequest" ]; then
+    clientRequest    
+elif [ $1 = "queryChan" ]; then
+    queryChan
+elif [ $1 = "queryDebug" ]; then
+    queryDebug
+elif [ $1 = "queryIBCDebug" ]; then
+    queryIBCDebug    
+elif [ $1 = "queryDebugReceive" ]; then
+    queryDebugReceive    
+elif [ $1 = "queryHighestRequest" ]; then
+    queryHighestRequest
+elif [ $1 = "queryHighestAbort" ]; then
+    queryHighestAbort
+elif [ $1 = "queryClientRequest" ]; then
+    queryClientRequest
+elif [ $1 = "querySuggestion" ]; then
+    querySuggestion
+elif [ $1 = "querySendAllUpon" ]; then
+    querySendAllUpon
+elif [ $1 = "queryTestQueue" ]; then
+    queryTestQueue
+elif [ $1 = "queryTest" ]; then
+    queryTest
+elif [ $1 = "queryEcho" ]; then
+    queryEcho
+elif [ $1 = "queryDone" ]; then
+    queryDone
+elif [ $1 = "queryKey1" ]; then
+    queryKey1
+elif [ $1 = "queryKey2" ]; then
+    queryKey2
+elif [ $1 = "queryKey3" ]; then
+    queryKey3
+elif [ $1 = "queryLock" ]; then
+    queryLock    
+elif [ $1 = "queryState" ]; then
+    queryState
+elif [ $1 = "queryStateProgress" ]; then
+    queryStateProgress
+elif [ $1 = "queryAbort" ]; then
+    queryAbort
+elif [ $1 = "triggerDone2" ]; then
+    triggerDone2    
+elif [ $1 = "registerName" ]; then
+    registerName
+elif [ $1 = "registerNameTB" ]; then
+    registerNameTB        
+elif [ $1 = "resolveRecord" ]; then
+    resolveRecord        
+elif [ $1 = "getAddress" ]; then
+    getAddress
+elif [ $1 = "checkSignature" ]; then
+    checkSignature
+elif [ $1 = "resetMany" ]; then
+    resetMany
+elif [ $1 = "inputMany" ]; then
+    inputMany
+elif [ $1 = "queryStateMany" ]; then
+    queryStateMany
+elif [ $1 = "resolveRecordMany" ]; then
+    resolveRecordMany
+elif [ $1 = "queryRelayerBalanceMany" ]; then
+    queryRelayerBalanceMany
+elif [ $1 = "queryRelayerBalance" ]; then
+    queryRelayerBalance    
+elif [ $1 = "queryUserBalanceMany" ]; then
+    queryUserBalanceMany    
+else
+    echo "unknown method in helper script see"
+fi

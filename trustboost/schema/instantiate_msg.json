@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InstantiateMsg",
+  "type": "object",
+  "required": [
+    "chain_id",
+    "contract_addr",
+    "input"
+  ],
+  "properties": {
+    "chain_id": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0.0
+    },
+    "contract_addr": {
+      "type": "string"
+    },
+    "input": {
+      "type": "string"
+    }
+  }
+}

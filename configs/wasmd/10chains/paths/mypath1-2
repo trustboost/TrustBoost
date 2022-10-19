@@ -1,0 +1,1 @@
+{"src": {"chain-id": "ibc-1", "order": "unordered", "version": "simplestoragev1", "rpc-addr": "http://localhost:26551"}, "dst": {"chain-id": "ibc-2", "order": "unordered", "version": "simplestoragev1", "rpc-addr": "http://localhost:26552"}, "src-channel-filter": {"rule": null, "channel-list": []}}

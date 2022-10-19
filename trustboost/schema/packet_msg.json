@@ -1,0 +1,384 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PacketMsg",
+  "description": "Messages that will be sent over the IBC channel",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "msg_queue"
+      ],
+      "properties": {
+        "msg_queue": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Msg"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "who_am_i"
+      ],
+      "properties": {
+        "who_am_i": {
+          "type": "object",
+          "required": [
+            "chain_id"
+          ],
+          "properties": {
+            "chain_id": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "definitions": {
+    "Msg": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "request"
+          ],
+          "properties": {
+            "request": {
+              "type": "object",
+              "required": [
+                "chain_id",
+                "view"
+              ],
+              "properties": {
+                "chain_id": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                },
+                "view": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "suggest"
+          ],
+          "properties": {
+            "suggest": {
+              "type": "object",
+              "required": [
+                "chain_id",
+                "key2",
+                "key2_val",
+                "key3",
+                "key3_val",
+                "prev_key2",
+                "view"
+              ],
+              "properties": {
+                "chain_id": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                },
+                "key2": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                },
+                "key2_val": {
+                  "type": "string"
+                },
+                "key3": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                },
+                "key3_val": {
+                  "type": "string"
+                },
+                "prev_key2": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "view": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "proof"
+          ],
+          "properties": {
+            "proof": {
+              "type": "object",
+              "required": [
+                "key1",
+                "key1_val",
+                "prev_key1",
+                "view"
+              ],
+              "properties": {
+                "key1": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                },
+                "key1_val": {
+                  "type": "string"
+                },
+                "prev_key1": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "view": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "abort"
+          ],
+          "properties": {
+            "abort": {
+              "type": "object",
+              "required": [
+                "chain_id",
+                "view"
+              ],
+              "properties": {
+                "chain_id": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                },
+                "view": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "propose"
+          ],
+          "properties": {
+            "propose": {
+              "type": "object",
+              "required": [
+                "chain_id",
+                "k",
+                "v",
+                "view"
+              ],
+              "properties": {
+                "chain_id": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                },
+                "k": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                },
+                "v": {
+                  "type": "string"
+                },
+                "view": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "echo"
+          ],
+          "properties": {
+            "echo": {
+              "type": "object",
+              "required": [
+                "val",
+                "view"
+              ],
+              "properties": {
+                "val": {
+                  "type": "string"
+                },
+                "view": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "key1"
+          ],
+          "properties": {
+            "key1": {
+              "type": "object",
+              "required": [
+                "val",
+                "view"
+              ],
+              "properties": {
+                "val": {
+                  "type": "string"
+                },
+                "view": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "key2"
+          ],
+          "properties": {
+            "key2": {
+              "type": "object",
+              "required": [
+                "val",
+                "view"
+              ],
+              "properties": {
+                "val": {
+                  "type": "string"
+                },
+                "view": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "key3"
+          ],
+          "properties": {
+            "key3": {
+              "type": "object",
+              "required": [
+                "val",
+                "view"
+              ],
+              "properties": {
+                "val": {
+                  "type": "string"
+                },
+                "view": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "lock"
+          ],
+          "properties": {
+            "lock": {
+              "type": "object",
+              "required": [
+                "val",
+                "view"
+              ],
+              "properties": {
+                "val": {
+                  "type": "string"
+                },
+                "view": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "done"
+          ],
+          "properties": {
+            "done": {
+              "type": "object",
+              "required": [
+                "val"
+              ],
+              "properties": {
+                "val": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

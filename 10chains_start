@@ -1,0 +1,146 @@
+#!/bin/bash
+# two-chainz creates two wasmd chains and configures the relayer to 
+
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+WASMD_DATA="$(pwd)/data"
+RELAYER_DIR="$(dirname $SCRIPTDIR)"
+RELAYER_CONF="$HOME/.relayer"
+
+# Ensure wasmd is installed
+if ! [ -x "$(which wasmd)" ]; then
+  echo "Error: wasmd is not installed. Try running 'make build-wasmd'" >&2
+  exit 1
+fi
+
+# Display software version for testers
+echo "WASMD VERSION INFO:"
+wasmd version --long
+
+# Ensure jq is installed
+if [[ ! -x "$(which jq)" ]]; then
+  echo "jq (a tool for parsing json in the command line) is required..."
+  echo "https://stedolan.github.io/jq/download/"
+  exit 1
+fi
+
+# Ensure user understands what will be deleted
+if [[ -d $WASMD_DATA ]] && [[ ! "$1" == "skip" ]]; then
+  read -p "$(basename $0) will delete \$(pwd)/data and \$HOME/.relayer folders. Do you wish to continue? (y/n): " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+  fi
+fi
+
+# Delete data from old runs
+rm -rf $WASMD_DATA &> /dev/null
+rm -rf $RELAYER_CONF &> /dev/null
+
+# Stop existing wasmd processes
+killall wasmd &> /dev/null
+
+set -e
+
+chainid0=ibc-0
+chainid1=ibc-1
+chainid2=ibc-2
+chainid3=ibc-3
+chainid4=ibc-4
+chainid5=ibc-5
+chainid6=ibc-6
+chainid7=ibc-7
+chainid8=ibc-8
+chainid9=ibc-9
+
+
+echo "Generating WASMD configurations..."
+mkdir -p $WASMD_DATA && cd $WASMD_DATA && cd ../
+./one-chain wasmd $chainid0 ./data 26550 26660 6060 9090
+./one-chain wasmd $chainid1 ./data 26551 26661 6061 9091
+./one-chain wasmd $chainid2 ./data 26552 26662 6062 9092
+./one-chain wasmd $chainid3 ./data 26553 26663 6063 9093
+./one-chain wasmd $chainid4 ./data 26554 26664 6064 9094
+./one-chain wasmd $chainid5 ./data 26555 26665 6065 9095
+./one-chain wasmd $chainid6 ./data 26556 26666 6066 9096
+./one-chain wasmd $chainid7 ./data 26557 26667 6067 9097
+./one-chain wasmd $chainid8 ./data 26558 26668 6068 9098
+./one-chain wasmd $chainid9 ./data 26559 26669 6069 9099
+
+
+[ -f $WASMD_DATA/$chainid0.log ] && echo "$chainid0 initialized. Watch file $WASMD_DATA/$chainid0.log to see its execution."
+[ -f $WASMD_DATA/$chainid1.log ] && echo "$chainid1 initialized. Watch file $WASMD_DATA/$chainid1.log to see its execution."
+[ -f $WASMD_DATA/$chainid2.log ] && echo "$chainid2 initialized. Watch file $WASMD_DATA/$chainid2.log to see its execution."
+[ -f $WASMD_DATA/$chainid3.log ] && echo "$chainid3 initialized. Watch file $WASMD_DATA/$chainid3.log to see its execution."
+[ -f $WASMD_DATA/$chainid4.log ] && echo "$chainid4 initialized. Watch file $WASMD_DATA/$chainid4.log to see its execution."
+[ -f $WASMD_DATA/$chainid5.log ] && echo "$chainid5 initialized. Watch file $WASMD_DATA/$chainid5.log to see its execution."
+[ -f $WASMD_DATA/$chainid6.log ] && echo "$chainid6 initialized. Watch file $WASMD_DATA/$chainid6.log to see its execution."
+[ -f $WASMD_DATA/$chainid7.log ] && echo "$chainid7 initialized. Watch file $WASMD_DATA/$chainid7.log to see its execution."
+[ -f $WASMD_DATA/$chainid8.log ] && echo "$chainid8 initialized. Watch file $WASMD_DATA/$chainid8.log to see its execution."
+[ -f $WASMD_DATA/$chainid9.log ] && echo "$chainid9 initialized. Watch file $WASMD_DATA/$chainid9.log to see its execution."
+
+
+echo "Generating rly configurations..."
+rly config init
+rly config add-chains configs/wasmd/10chains/chains
+
+SEED0=$(jq -r '.mnemonic' $WASMD_DATA/ibc-0/testkey_seed.json)
+SEED1=$(jq -r '.mnemonic' $WASMD_DATA/ibc-1/testkey_seed.json)
+SEED2=$(jq -r '.mnemonic' $WASMD_DATA/ibc-2/testkey_seed.json)
+SEED3=$(jq -r '.mnemonic' $WASMD_DATA/ibc-3/testkey_seed.json)
+SEED4=$(jq -r '.mnemonic' $WASMD_DATA/ibc-4/testkey_seed.json)
+SEED5=$(jq -r '.mnemonic' $WASMD_DATA/ibc-5/testkey_seed.json)
+SEED6=$(jq -r '.mnemonic' $WASMD_DATA/ibc-6/testkey_seed.json)
+SEED7=$(jq -r '.mnemonic' $WASMD_DATA/ibc-7/testkey_seed.json)
+SEED8=$(jq -r '.mnemonic' $WASMD_DATA/ibc-8/testkey_seed.json)
+SEED9=$(jq -r '.mnemonic' $WASMD_DATA/ibc-9/testkey_seed.json)
+
+echo "Key $(rly keys restore ibc-0 testkey "$SEED0") imported from ibc-0 to relayer..."
+echo "Key $(rly keys restore ibc-1 testkey "$SEED1") imported from ibc-1 to relayer..."
+echo "Key $(rly keys restore ibc-2 testkey "$SEED2") imported from ibc-2 to relayer..."
+echo "Key $(rly keys restore ibc-3 testkey "$SEED3") imported from ibc-3 to relayer..."
+echo "Key $(rly keys restore ibc-4 testkey "$SEED4") imported from ibc-4 to relayer..."
+echo "Key $(rly keys restore ibc-5 testkey "$SEED5") imported from ibc-5 to relayer..."
+echo "Key $(rly keys restore ibc-6 testkey "$SEED6") imported from ibc-6 to relayer..."
+
+wasmd keys delete ibc-7 -y &> /dev/null || true
+wasmd keys delete ibc-8 -y &> /dev/null || true
+wasmd keys delete ibc-9 -y &> /dev/null || true
+
+
+echo "Key $(rly keys restore ibc-7 testkey "$SEED7") imported from ibc-7 to relayer..."
+echo "Key $(rly keys restore ibc-8 testkey "$SEED8") imported from ibc-8 to relayer..."
+echo "Key $(rly keys restore ibc-9 testkey "$SEED9") imported from ibc-9 to relayer..."
+
+rly config add-paths configs/wasmd/10chains/paths
+
+set +x
+
+########     DELETE old keys     ########
+
+echo "Deleting old wasmd keys..."
+wasmd keys delete ibc-0 -y &> /dev/null || true #The `.. | true` ensures execution continues even if key to be deleted non-exist
+wasmd keys delete ibc-1 -y &> /dev/null || true
+wasmd keys delete ibc-2 -y &> /dev/null || true
+wasmd keys delete ibc-3 -y &> /dev/null || true
+wasmd keys delete ibc-4 -y &> /dev/null || true
+wasmd keys delete ibc-5 -y &> /dev/null || true
+wasmd keys delete ibc-6 -y &> /dev/null || true
+wasmd keys delete ibc-7 -y &> /dev/null || true
+wasmd keys delete ibc-8 -y &> /dev/null || true
+wasmd keys delete ibc-9 -y &> /dev/null || true
+
+set +x
+
+########     ADD new keys     ########
+
+echo "Adding new wasmd keys..."
+cat $WASMD_DATA/ibc-0/key_seed.json | jq .mnemonic -r | wasmd keys add ibc-0 --recover
+cat $WASMD_DATA/ibc-1/key_seed.json | jq .mnemonic -r | wasmd keys add ibc-1 --recover
+cat $WASMD_DATA/ibc-2/key_seed.json | jq .mnemonic -r | wasmd keys add ibc-2 --recover
+cat $WASMD_DATA/ibc-3/key_seed.json | jq .mnemonic -r | wasmd keys add ibc-3 --recover
+cat $WASMD_DATA/ibc-4/key_seed.json | jq .mnemonic -r | wasmd keys add ibc-4 --recover
+cat $WASMD_DATA/ibc-5/key_seed.json | jq .mnemonic -r | wasmd keys add ibc-5 --recover
+cat $WASMD_DATA/ibc-6/key_seed.json | jq .mnemonic -r | wasmd keys add ibc-6 --recover
+cat $WASMD_DATA/ibc-7/key_seed.json | jq .mnemonic -r | wasmd keys add ibc-7 --recover
+cat $WASMD_DATA/ibc-8/key_seed.json | jq .mnemonic -r | wasmd keys add ibc-8 --recover
+cat $WASMD_DATA/ibc-9/key_seed.json | jq .mnemonic -r | wasmd keys add ibc-9 --recover

@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ValueResponse",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "KeyFound"
+      ],
+      "properties": {
+        "KeyFound": {
+          "type": "object",
+          "required": [
+            "key",
+            "value"
+          ],
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "KeyNotFound"
+      ],
+      "properties": {
+        "KeyNotFound": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}
